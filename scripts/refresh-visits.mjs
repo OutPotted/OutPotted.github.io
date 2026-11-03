@@ -1,0 +1,11 @@
+import {readFile,writeFile,rename} from 'node:fs/promises';
+const file=new URL('../data/roblox-snapshot.json',import.meta.url);
+const current=JSON.parse(await readFile(file,'utf8'));
+const response=await fetch(current.source);
+if(!response.ok)throw new Error(`Roblox API returned ${response.status}; snapshot unchanged.`);
+const {data}=await response.json();
+const games=current.games.map(({id})=>{const game=data.find(g=>g.id===id);if(!game||!Number.isSafeInteger(game.visits)||game.visits<0)throw new Error(`Invalid or missing visits for ${id}; snapshot unchanged.`);return {id,visits:game.visits}});
+const next={...current,checkedAt:new Date().toISOString(),games};
+const temp=new URL('../data/roblox-snapshot.json.tmp',import.meta.url);
+await writeFile(temp,JSON.stringify(next,null,2)+'\n');await rename(temp,file);
+console.log(`Updated ${games.length} games: ${games.reduce((sum,g)=>sum+g.visits,0).toLocaleString('en-US')} combined visits. Rebuild and publish to update the site.`);
